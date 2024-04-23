@@ -1,5 +1,5 @@
-[
-  [
+{
+  "group_public_key": [
     226,
     162,
     131,
@@ -33,7 +33,7 @@
     67,
     24
   ],
-  {
+  "group_public_key_shares": {
     "f0b52564475c582a2b483b40eb07b57bde2032b10eb8f27476ef3a4049be2508": [
       34,
       246,
@@ -103,7 +103,7 @@
       44
     ]
   },
-  {
+  "private_data": {
     "total_secret_share": [
       73,
       197,
@@ -139,4 +139,4 @@
       13
     ]
   }
-]
+}

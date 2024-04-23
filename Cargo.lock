@@ -173,6 +173,7 @@ name = "cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "curve25519-dalek",
  "merlin",
  "rand_core",
  "schnorrkel",
@@ -443,7 +444,7 @@ checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 [[package]]
 name = "schnorrkel"
 version = "0.11.4"
-source = "git+https://github.com/Fiono11/schnorrkel?branch=master#e23ff3a0329d2d3756ba5b22468c6ab370b2bff8"
+source = "git+https://github.com/Fiono11/schnorrkel?branch=master#602b32a878417d010bfa667cfc5b88726bbb7230"
 dependencies = [
  "aead",
  "arrayref",
@@ -458,7 +459,6 @@ dependencies = [
  "rand_core",
  "serde",
  "serde_bytes",
- "serde_json",
  "sha2",
  "subtle",
  "zeroize",

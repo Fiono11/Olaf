@@ -16,3 +16,11 @@ rand_core = { version = "0.6.2", default-features = false }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = "1.0"
 merlin = { version = "3.0.0", default-features = false }
+curve25519-dalek = { version = "4.1.0", default-features = false, features = [
+    "digest",
+    "zeroize",
+    "precomputed-tables",
+    "legacy_compatibility",
+    "rand_core",
+    "serde",
+] }
