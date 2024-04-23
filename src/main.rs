@@ -233,8 +233,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // Serialize and save the result of Round 3
             let output_json = serde_json::to_string_pretty(&container)?;
+
             let mut output_file = File::create(Path::new(&output_dir).join("round3_result.json"))?;
+
             output_file.write_all(output_json.as_bytes())?;
+
             println!("Round 3 result saved to {}", output_dir);
         }
         Commands::RunRound1FROST {
@@ -259,9 +262,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // Serialize and save the result of Round 1 of FROST
             let output_json = serde_json::to_string_pretty(&frost_round1)?;
+
             let mut output_file =
                 File::create(Path::new(&output_dir).join("round1_frost_result.json"))?;
+
             output_file.write_all(output_json.as_bytes())?;
+
             println!("FROST Round 1 data saved to {}", output_dir);
         }
         Commands::RunRound2FROST {
@@ -317,9 +323,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // Serialize and save the result of Round 1 of FROST
             let output_json = serde_json::to_string_pretty(&signature_share)?;
+
             let mut output_file =
                 File::create(Path::new(&output_dir).join("frost_round2_result.json"))?;
+
             output_file.write_all(output_json.as_bytes())?;
+
             println!("FROST Round 2 data saved to {}", output_dir);
         }
         Commands::AggregateFROST {
@@ -363,9 +372,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 aggregate(&signing_package, &signature_shares, &pubkey_package).unwrap();
 
             let output_json = serde_json::to_string_pretty(&group_signature)?;
+
             let mut output_file =
                 File::create(Path::new(&output_dir).join("group_signature.json"))?;
+
             output_file.write_all(output_json.as_bytes())?;
+
             println!("FROST Aggregate data saved to {}", output_dir);
         }
     }
