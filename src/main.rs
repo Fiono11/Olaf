@@ -73,7 +73,15 @@ enum Commands {
         output_dir: String,
     },
     RunRound2FROST {
+        #[arg(
+            long,
+            help = "Directory path to read the data produced in round 2 of the Olaf protocol"
+        )]
         round2_data_dir: String,
+        #[arg(
+            long,
+            help = "Directory path to read the data produced in round 3 of the Olaf protocol"
+        )]
         round3_data_dir: String,
         #[arg(
             long,
@@ -87,13 +95,26 @@ enum Commands {
         output_dir: String,
     },
     AggregateFROST {
+        #[arg(
+            long,
+            help = "Directory path to read the data produced in round 3 of the Olaf protocol"
+        )]
         round3_data_dir: String,
+        #[arg(
+            long,
+            help = "Directory path to read the data produced in round 1 of the FROST protocol"
+        )]
         round1_frost_data_dir: String,
         #[arg(
             long,
             help = "Directory path to read the data produced in round 2 of the FROST protocol"
         )]
         round2_frost_data_dir: String,
+        #[arg(
+            long,
+            help = "Directory path to write the data of aggregate FROST protocol"
+        )]
+        output_dir: String,
     },
 }
 
@@ -134,8 +155,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 fs::read_to_string(Path::new(&dir_path).join("combined_data.json"))?;
             let combined_data: CombinedData = serde_json::from_str(&combined_data_json)?;
 
-            let message_json =
-                fs::read_to_string(Path::new(&dir_path).join("received_public_messages.json"))?;
+            let message_json = fs::read_to_string(
+                Path::new(&dir_path).join("received_round1_public_messages.json"),
+            )?;
             let message: round1::PublicMessage = serde_json::from_str(&message_json)?;
 
             let mut messages = BTreeSet::new();
@@ -237,7 +259,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // Serialize and save the result of Round 1 of FROST
             let output_json = serde_json::to_string_pretty(&frost_round1)?;
-            let mut output_file = File::create(Path::new(&output_dir).join("round3_result.json"))?;
+            let mut output_file =
+                File::create(Path::new(&output_dir).join("round1_frost_result.json"))?;
             output_file.write_all(output_json.as_bytes())?;
             println!("FROST Round 1 data saved to {}", output_dir);
         }
@@ -247,8 +270,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             round1_frost_data_dir,
             output_dir,
         } => {
-            let frost_round1_json =
-                fs::read_to_string(Path::new(&round1_frost_data_dir).join("round3_result.json"))?;
+            let frost_round1_json = fs::read_to_string(
+                Path::new(&round1_frost_data_dir).join("round1_frost_result.json"),
+            )?;
 
             let frost_round1 = serde_json::from_str::<FROSTRound1>(&frost_round1_json)?;
 
@@ -302,9 +326,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             round3_data_dir,
             round1_frost_data_dir,
             round2_frost_data_dir,
+            output_dir,
         } => {
-            let round2_signature_shares_json =
-                fs::read_to_string(Path::new(&round3_data_dir).join("signature_shares.json"))?;
+            let round2_signature_shares_json = fs::read_to_string(
+                Path::new(&round2_frost_data_dir).join("signature_shares.json"),
+            )?;
 
             let signature_shares = serde_json::from_str::<BTreeMap<Identifier, SignatureShare>>(
                 &round2_signature_shares_json,
@@ -336,15 +362,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             let group_signature =
                 aggregate(&signing_package, &signature_shares, &pubkey_package).unwrap();
 
-            // Check that the threshold signature can be verified by the group public
-            // key (the verification key).
-
-            verify_signature(
-                b"message to sign",
-                &group_signature,
-                &pubkey_package.verifying_key(),
-            )
-            .unwrap();
+            let output_json = serde_json::to_string_pretty(&group_signature)?;
+            let mut output_file =
+                File::create(Path::new(&output_dir).join("group_signature.json"))?;
+            output_file.write_all(output_json.as_bytes())?;
+            println!("FROST Aggregate data saved to {}", output_dir);
         }
     }
 
