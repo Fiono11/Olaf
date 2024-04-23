@@ -5,16 +5,12 @@ use rand_core::OsRng;
 use schnorrkel::{
     olaf::{
         frost::{
-            self,
-            round1::{
-                self as frost_round1, Nonce, NonceCommitment, SigningCommitments, SigningNonces,
-            },
-            round2::{
-                self as frost_round2, aggregate, verify_signature, KeyPackage, PublicKeyPackage,
-                SignatureShare, SigningPackage,
-            },
+            round1::{self as frost_round1, SigningCommitments, SigningNonces},
+            round2::{self as frost_round2, SignatureShare, SigningPackage},
+            round3::aggregate,
         },
         identifier::Identifier,
+        keys::{KeyPackage, PublicKeyPackage},
         simplpedpop::{
             round1, round2,
             round3::{self, PrivateData},

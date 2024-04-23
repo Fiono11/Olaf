@@ -444,7 +444,7 @@ checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 [[package]]
 name = "schnorrkel"
 version = "0.11.4"
-source = "git+https://github.com/Fiono11/schnorrkel?branch=master#0168cfaff0989c9637f50845a5c195d9f6db69ca"
+source = "git+https://github.com/Fiono11/schnorrkel?branch=master#e07a49dfdc953139f0e494ae6e4ee745842aeeb2"
 dependencies = [
  "aead",
  "arrayref",
