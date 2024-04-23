@@ -9,7 +9,10 @@ use schnorrkel::{
             round1::{
                 self as frost_round1, Nonce, NonceCommitment, SigningCommitments, SigningNonces,
             },
-            round2::{self as frost_round2, KeyPackage, SignatureShare, SigningPackage},
+            round2::{
+                self as frost_round2, aggregate, verify_signature, KeyPackage, PublicKeyPackage,
+                SignatureShare, SigningPackage,
+            },
         },
         identifier::Identifier,
         simplpedpop::{
@@ -84,6 +87,8 @@ enum Commands {
         output_dir: String,
     },
     AggregateFROST {
+        round3_data_dir: String,
+        round1_frost_data_dir: String,
         #[arg(
             long,
             help = "Directory path to read the data produced in round 2 of the FROST protocol"
@@ -288,13 +293,59 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             // Serialize and save the result of Round 1 of FROST
             let output_json = serde_json::to_string_pretty(&signature_share)?;
-            let mut output_file = File::create(Path::new(&output_dir).join("round3_result.json"))?;
+            let mut output_file =
+                File::create(Path::new(&output_dir).join("frost_round2_result.json"))?;
             output_file.write_all(output_json.as_bytes())?;
             println!("FROST Round 2 data saved to {}", output_dir);
         }
         Commands::AggregateFROST {
+            round3_data_dir,
+            round1_frost_data_dir,
             round2_frost_data_dir,
-        } => {}
+        } => {
+            let round2_signature_shares_json =
+                fs::read_to_string(Path::new(&round3_data_dir).join("signature_shares.json"))?;
+
+            let signature_shares = serde_json::from_str::<BTreeMap<Identifier, SignatureShare>>(
+                &round2_signature_shares_json,
+            )?;
+
+            let round3_result_json =
+                fs::read_to_string(Path::new(&round3_data_dir).join("round3_result.json"))?;
+
+            let container: Container = serde_json::from_str::<Container>(&round3_result_json)?;
+
+            let pubkey_package = PublicKeyPackage::new(
+                container.group_public_key_shares,
+                container.group_public_key,
+            );
+
+            let frost_round1_commitments = fs::read_to_string(
+                Path::new(&round1_frost_data_dir).join("signing_commitments.json"),
+            )?;
+
+            let commitments_map = serde_json::from_str::<BTreeMap<Identifier, SigningCommitments>>(
+                &frost_round1_commitments,
+            )?;
+
+            let message = b"message to sign";
+
+            let signing_package = SigningPackage::new(commitments_map, message);
+
+            // Aggregate (also verifies the signature shares)
+            let group_signature =
+                aggregate(&signing_package, &signature_shares, &pubkey_package).unwrap();
+
+            // Check that the threshold signature can be verified by the group public
+            // key (the verification key).
+
+            verify_signature(
+                b"message to sign",
+                &group_signature,
+                &pubkey_package.verifying_key(),
+            )
+            .unwrap();
+        }
     }
 
     Ok(())
