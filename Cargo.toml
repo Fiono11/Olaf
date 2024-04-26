@@ -27,3 +27,4 @@ curve25519-dalek = { version = "4.1.0", default-features = false, features = [
 subxt = "0.35.3"
 tokio = { version = "1.37", features = ["rt-multi-thread"] }
 subxt-signer = "0.35.3"
+parity-scale-codec = "=3.6.9"

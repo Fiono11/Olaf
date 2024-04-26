@@ -560,6 +560,7 @@ dependencies = [
  "clap",
  "curve25519-dalek",
  "merlin",
+ "parity-scale-codec",
  "rand_core",
  "schnorrkel 0.11.4 (git+https://github.com/Fiono11/schnorrkel?branch=master)",
  "serde",

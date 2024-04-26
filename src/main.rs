@@ -27,6 +27,7 @@ use std::{
     io::Write,
     path::Path,
 };
+use subxt::config::polkadot::PolkadotExtrinsicParamsBuilder as Params;
 use subxt::{
     dynamic::Value,
     utils::{AccountId32, MultiAddress},
@@ -327,11 +328,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let payload =
                 subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
 
+            let account_id: AccountId32 = AccountId32(container.group_public_key.to_bytes());
+
+            // Configure the transaction parameters; we give a small tip and set the
+            // transaction to live for 32 blocks from the `latest_block` above.
+            let tx_params = Params::new().nonce(1_000).build();
+
             // Construct the tx but don't sign it. The account nonce here defaults to 0.
             // You can use `create_partial_signed` to fetch the correct nonce.
             let partial_tx = client
                 .tx()
-                .create_partial_signed_offline(&payload, Default::default())?;
+                .create_partial_signed(&payload, &account_id, tx_params)
+                .await?;
 
             let payload = partial_tx.signer_payload();
 
@@ -389,13 +397,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let payload =
                 subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
 
+            let account_id: AccountId32 = AccountId32(container.group_public_key.to_bytes());
+
+            let public_key: MultiAddress<AccountId32, _> =
+                PK(container.group_public_key.to_bytes()).into();
+
             // Construct the tx but don't sign it. The account nonce here defaults to 0.
             // You can use `create_partial_signed` to fetch the correct nonce.
             let partial_tx = client
                 .tx()
-                .create_partial_signed_offline(&payload, Default::default())?;
+                .create_partial_signed(&payload, &account_id, Default::default())
+                .await?;
 
             let payload = partial_tx.signer_payload();
+
+            println!("payload: {:?}", payload);
 
             let signing_package = SigningPackage::new(commitments_map, &payload[..], b"substrate");
 
@@ -404,9 +420,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 aggregate(&signing_package, &signature_shares, &pubkey_package).unwrap();
 
             let signature = Signature(group_signature.to_bytes());
-
-            let public_key: MultiAddress<AccountId32, _> =
-                PK(container.group_public_key.to_bytes()).into();
 
             // Now we can build an tx, which one can call `submit` or `submit_and_watch`
             // on to submit to a node and optionally watch the status.
