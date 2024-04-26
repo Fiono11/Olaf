@@ -29,11 +29,10 @@ use std::{
 };
 use subxt::{
     dynamic::Value,
-    storage::Address,
     utils::{AccountId32, MultiAddress},
 };
-use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::{dev, PublicKey as PK, Signature};
+use subxt::{OnlineClient, PolkadotConfig};
+use subxt_signer::sr25519::{PublicKey as PK, Signature};
 
 // Generate an interface that we can use from the node's metadata.
 #[subxt::subxt(runtime_metadata_path = "metadata.scale")]
@@ -336,7 +335,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let payload = partial_tx.signer_payload();
 
-            let signing_package = SigningPackage::new(commitments_map, &payload[..]);
+            let signing_package = SigningPackage::new(commitments_map, &payload[..], b"substrate");
 
             let signature_share: SignatureShare =
                 frost_round2::sign(&signing_package, &frost_round1.nonces, &key_package).unwrap();
@@ -398,7 +397,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let payload = partial_tx.signer_payload();
 
-            let signing_package = SigningPackage::new(commitments_map, &payload[..]);
+            let signing_package = SigningPackage::new(commitments_map, &payload[..], b"substrate");
 
             // Aggregate (also verifies the signature shares)
             let group_signature =
@@ -423,19 +422,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             output_file.write_all(output_json.as_bytes())?;
 
             println!("FROST Aggregate data saved to {}", output_dir);
-
-            // Create a dummy tx payload to sign:
-            let payload =
-                subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
-
-            // Construct the tx but don't sign it. The account nonce here defaults to 0.
-            // You can use `create_partial_signed` to fetch the correct nonce.
-            /*let partial_tx = client
-            .tx()
-            .create_signed(&payload, &dev::alice(), Default::default())
-            .await?;
-
-            partial_tx.submit().await?;*/
         }
     }
 

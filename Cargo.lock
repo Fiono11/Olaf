@@ -2359,7 +2359,7 @@ dependencies = [
 [[package]]
 name = "schnorrkel"
 version = "0.11.4"
-source = "git+https://github.com/Fiono11/schnorrkel?branch=master#05bd92172d63025c23883844150d79bfe19efbca"
+source = "git+https://github.com/Fiono11/schnorrkel?branch=master#ed0d6be746353a7ab2f22e4f12ae485ffb429f55"
 dependencies = [
  "aead",
  "arrayref",
