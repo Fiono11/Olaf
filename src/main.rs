@@ -23,11 +23,16 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    error::Error,
     fs::{self, File},
     io::Write,
     path::Path,
 };
+use subxt::dynamic::Value;
+use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
+
+// Generate an interface that we can use from the node's metadata.
+#[subxt::subxt(runtime_metadata_path = "metadata.scale")]
+pub mod polkadot {}
 
 #[derive(Parser, Serialize, Deserialize)]
 #[command(name = "app", about = "An application.", version = "1.0")]
@@ -114,7 +119,8 @@ enum Commands {
     },
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -310,9 +316,22 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &frost_round1_commitments,
             )?;
 
-            let message = b"message to sign";
+            // Create client:
+            let client = OnlineClient::<PolkadotConfig>::new().await?;
 
-            let signing_package = SigningPackage::new(commitments_map, message);
+            // Create a dummy tx payload to sign:
+            let payload =
+                subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
+
+            // Construct the tx but don't sign it. The account nonce here defaults to 0.
+            // You can use `create_partial_signed` to fetch the correct nonce.
+            let partial_tx = client
+                .tx()
+                .create_partial_signed_offline(&payload, Default::default())?;
+
+            let payload = partial_tx.signer_payload();
+
+            let signing_package = SigningPackage::new(commitments_map, &payload[..]);
 
             let signature_share: SignatureShare =
                 frost_round2::sign(&signing_package, &frost_round1.nonces, &key_package).unwrap();
@@ -359,13 +378,30 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &frost_round1_commitments,
             )?;
 
-            let message = b"message to sign";
+            // Create client:
+            let client = OnlineClient::<PolkadotConfig>::new().await?;
 
-            let signing_package = SigningPackage::new(commitments_map, message);
+            // Create a dummy tx payload to sign:
+            let payload =
+                subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
+
+            // Construct the tx but don't sign it. The account nonce here defaults to 0.
+            // You can use `create_partial_signed` to fetch the correct nonce.
+            let partial_tx = client
+                .tx()
+                .create_partial_signed_offline(&payload, Default::default())?;
+
+            let payload = partial_tx.signer_payload();
+
+            let signing_package = SigningPackage::new(commitments_map, &payload[..]);
 
             // Aggregate (also verifies the signature shares)
             let group_signature =
                 aggregate(&signing_package, &signature_shares, &pubkey_package).unwrap();
+
+            let tx = SubmittableExtrinsic::from_bytes(client, group_signature.to_bytes().to_vec());
+
+            tx.submit().await?;
 
             let output_json = serde_json::to_string_pretty(&group_signature)?;
 

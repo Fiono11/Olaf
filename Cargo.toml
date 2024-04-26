@@ -24,3 +24,6 @@ curve25519-dalek = { version = "4.1.0", default-features = false, features = [
     "rand_core",
     "serde",
 ] }
+subxt = "0.35.3"
+tokio = { version = "1.37", features = ["rt-multi-thread"] }
+subxt-signer = "0.35.3"
