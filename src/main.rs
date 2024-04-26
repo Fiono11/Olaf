@@ -27,8 +27,13 @@ use std::{
     io::Write,
     path::Path,
 };
-use subxt::dynamic::Value;
+use subxt::{
+    dynamic::Value,
+    storage::Address,
+    utils::{AccountId32, MultiAddress},
+};
 use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
+use subxt_signer::sr25519::{dev, PublicKey as PK, Signature};
 
 // Generate an interface that we can use from the node's metadata.
 #[subxt::subxt(runtime_metadata_path = "metadata.scale")]
@@ -399,7 +404,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let group_signature =
                 aggregate(&signing_package, &signature_shares, &pubkey_package).unwrap();
 
-            let tx = SubmittableExtrinsic::from_bytes(client, group_signature.to_bytes().to_vec());
+            let signature = Signature(group_signature.to_bytes());
+
+            let public_key: MultiAddress<AccountId32, _> =
+                PK(container.group_public_key.to_bytes()).into();
+
+            // Now we can build an tx, which one can call `submit` or `submit_and_watch`
+            // on to submit to a node and optionally watch the status.
+            let tx = partial_tx.sign_with_address_and_signature(&public_key, &signature.into());
 
             tx.submit().await?;
 
@@ -411,6 +423,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             output_file.write_all(output_json.as_bytes())?;
 
             println!("FROST Aggregate data saved to {}", output_dir);
+
+            // Create a dummy tx payload to sign:
+            let payload =
+                subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
+
+            // Construct the tx but don't sign it. The account nonce here defaults to 0.
+            // You can use `create_partial_signed` to fetch the correct nonce.
+            /*let partial_tx = client
+            .tx()
+            .create_signed(&payload, &dev::alice(), Default::default())
+            .await?;
+
+            partial_tx.submit().await?;*/
         }
     }
 
