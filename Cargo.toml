@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "cargo"] }
-schnorrkel = { git = "https://github.com/Fiono11/schnorrkel", branch = "master", features = [
+schnorrkel = { git = "https://github.com/Fiono11/schnorrkel", features = [
     "alloc",
     "aead",
     "serde",
@@ -27,4 +27,4 @@ curve25519-dalek = { version = "4.1.0", default-features = false, features = [
 subxt = "0.35.3"
 tokio = { version = "1.37", features = ["rt-multi-thread"] }
 subxt-signer = "0.35.3"
-parity-scale-codec = "=3.6.9"
+hex = "0.4.3"

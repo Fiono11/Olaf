@@ -23,21 +23,31 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use std::{
     collections::{BTreeMap, BTreeSet},
+    default,
     fs::{self, File},
     io::Write,
     path::Path,
 };
-use subxt::config::polkadot::PolkadotExtrinsicParamsBuilder as Params;
+use subxt::{
+    backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
+    client::OnlineClientT,
+    config::polkadot::PolkadotExtrinsicParamsBuilder as Params,
+};
 use subxt::{
     dynamic::Value,
+    storage::Address,
     utils::{AccountId32, MultiAddress},
 };
-use subxt::{OnlineClient, PolkadotConfig};
-use subxt_signer::sr25519::{PublicKey as PK, Signature};
+use subxt::{tx::SubmittableExtrinsic, OnlineClient, PolkadotConfig};
+use subxt_signer::sr25519::dev;
+//use subxt_signer::sr25519::{dev, PublicKey as PK, Signature};
 
 // Generate an interface that we can use from the node's metadata.
 #[subxt::subxt(runtime_metadata_path = "metadata.scale")]
 pub mod polkadot {}
+
+const NONCE: u32 = 6;
+const CONTEXT: &[u8] = b"substrate";
 
 #[derive(Parser, Serialize, Deserialize)]
 #[command(name = "app", about = "An application.", version = "1.0")]
@@ -324,26 +334,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Create client:
             let client = OnlineClient::<PolkadotConfig>::new().await?;
 
+            let rpc_client = RpcClient::from_url("ws://127.0.0.1:9944").await?;
+
+            let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
+
             // Create a dummy tx payload to sign:
-            let payload =
+            let call =
                 subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
 
-            let account_id: AccountId32 = AccountId32(container.group_public_key.to_bytes());
+            let account_id = AccountId32(container.group_public_key.to_bytes());
 
-            // Configure the transaction parameters; we give a small tip and set the
-            // transaction to live for 32 blocks from the `latest_block` above.
-            let tx_params = Params::new().nonce(1_000).build();
+            let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
+
+            //let params = Default::default();
+            let params = Params::new().nonce(nonce).build();
 
             // Construct the tx but don't sign it. The account nonce here defaults to 0.
             // You can use `create_partial_signed` to fetch the correct nonce.
-            let partial_tx = client
-                .tx()
-                .create_partial_signed(&payload, &account_id, tx_params)
-                .await?;
+            /*let partial_tx = client
+            .tx()
+            .create_partial_signed(&call, &account_id, params)
+            .await?;*/
+
+            let partial_tx = client.tx().create_partial_signed_offline(&call, params)?;
+
+            let public_key = subxt::utils::AccountId32(container.group_public_key.to_bytes());
+
+            /*let partial_tx = client
+            .tx()
+            .create_partial_signed(&call, &public_key, params)
+            .await?;*/
 
             let payload = partial_tx.signer_payload();
 
-            let signing_package = SigningPackage::new(commitments_map, &payload[..], b"substrate");
+            println!("payload: {:?}", payload);
+
+            let signing_package = SigningPackage::new(commitments_map, &payload[..], CONTEXT);
 
             let signature_share: SignatureShare =
                 frost_round2::sign(&signing_package, &frost_round1.nonces, &key_package).unwrap();
@@ -355,6 +381,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 File::create(Path::new(&output_dir).join("frost_round2_result.json"))?;
 
             output_file.write_all(output_json.as_bytes())?;
+
+            let output_json_payload = serde_json::to_string_pretty(&payload)?;
+
+            let mut output_file_payload =
+                File::create(Path::new(&output_dir).join("payload.json"))?;
+
+            output_file_payload.write_all(output_json_payload.as_bytes())?;
 
             println!("FROST Round 2 data saved to {}", output_dir);
         }
@@ -371,6 +404,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let signature_shares = serde_json::from_str::<BTreeMap<Identifier, SignatureShare>>(
                 &round2_signature_shares_json,
             )?;
+
+            let payload_json =
+                fs::read_to_string(Path::new(&round2_frost_data_dir).join("payload.json"))?;
+
+            let payload = serde_json::from_str::<Vec<u8>>(&payload_json)?;
 
             let round3_result_json =
                 fs::read_to_string(Path::new(&round3_data_dir).join("round3_result.json"))?;
@@ -393,39 +431,112 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Create client:
             let client = OnlineClient::<PolkadotConfig>::new().await?;
 
+            let rpc_client = RpcClient::from_url("ws://127.0.0.1:9944").await?;
+
+            let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
+
+            let account_id = AccountId32(container.group_public_key.to_bytes());
+
+            let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
+
             // Create a dummy tx payload to sign:
-            let payload =
+            let call =
                 subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
 
-            let account_id: AccountId32 = AccountId32(container.group_public_key.to_bytes());
+            //let params = Default::default();
+            let params = Params::new().nonce(nonce).build();
 
-            let public_key: MultiAddress<AccountId32, _> =
-                PK(container.group_public_key.to_bytes()).into();
+            let account_id = AccountId32(container.group_public_key.to_bytes());
 
             // Construct the tx but don't sign it. The account nonce here defaults to 0.
             // You can use `create_partial_signed` to fetch the correct nonce.
-            let partial_tx = client
-                .tx()
-                .create_partial_signed(&payload, &account_id, Default::default())
-                .await?;
+            /*let partial_tx = client
+            .tx()
+            .create_partial_signed(&call, &account_id, params)
+            .await?;*/
+
+            let partial_tx = client.tx().create_partial_signed_offline(&call, params)?;
+
+            let account_id = AccountId32(container.group_public_key.to_bytes());
+
+            /*let partial_tx = client
+            .tx()
+            .create_partial_signed(&call, &account_id, params)
+            .await?;*/
 
             let payload = partial_tx.signer_payload();
 
             println!("payload: {:?}", payload);
 
-            let signing_package = SigningPackage::new(commitments_map, &payload[..], b"substrate");
+            //let params = Default::default();
+
+            let signing_package = SigningPackage::new(commitments_map, &payload[..], CONTEXT);
 
             // Aggregate (also verifies the signature shares)
             let group_signature =
                 aggregate(&signing_package, &signature_shares, &pubkey_package).unwrap();
 
-            let signature = Signature(group_signature.to_bytes());
+            let signature = subxt_signer::sr25519::Signature(group_signature.to_bytes());
+
+            //let public_key = MultiAddress::Address32(container.group_public_key.to_bytes());
+            let public_key: MultiAddress<AccountId32, _> =
+                subxt_signer::sr25519::PublicKey(container.group_public_key.to_bytes()).into();
 
             // Now we can build an tx, which one can call `submit` or `submit_and_watch`
             // on to submit to a node and optionally watch the status.
             let tx = partial_tx.sign_with_address_and_signature(&public_key, &signature.into());
 
+            /*let tx = client
+            .tx()
+            .create_signed(&call, &dev::alice(), params)
+            .await?;*/
+
             tx.submit().await?;
+
+            //let dry_res = tx.validate().await;
+            //println!("Validation Result: {:?}", dry_res);
+
+            /*let from = dev::alice();
+            let hash = client
+                .tx()
+                .sign_and_submit(&payload1, &from, params)
+                .await?;*/
+
+            //let ext_hash = tx.hash();
+
+            //let sub = client.backend().submit_transaction(tx.encoded()).await?;
+
+            //let mut progress = subxt::tx::TxProgress::new(sub, client.clone(), ext_hash);
+
+            /*while let Some(status) = progress.next().await {
+            match status? {
+                // It's finalized in a block!
+                subxt::tx::TxStatus::InFinalizedBlock(in_block) => {
+                    println!(
+                        "Transaction {:?} is finalized in block {:?}",
+                        in_block.extrinsic_hash(),
+                        in_block.block_hash()
+                    );
+
+                    // grab the events and fail if no ExtrinsicSuccess event seen:
+                    let events = in_block.wait_for_success().await?;
+                    // We can look for events (this uses the static interface; we can also iterate
+                    // over them and dynamically decode them):
+                    let transfer_event =
+                        events.find_first::<polkadot::balances::events::Transfer>()?;
+
+                    if let Some(event) = transfer_event {
+                        println!("Balance transfer success: {event:?}");
+                    } else {
+                        println!("Failed to find Balances::Transfer Event");
+                    }
+                }
+                // Just log any other status we encounter:
+                other => {
+                    println!("Status: {other:?}");
+                }
+            }
+            }*/
 
             let output_json = serde_json::to_string_pretty(&group_signature)?;
 
